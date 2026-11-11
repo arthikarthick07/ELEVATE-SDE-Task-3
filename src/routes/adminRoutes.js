@@ -3,7 +3,6 @@ const router = express.Router();
 
 const adminController = require("../controllers/adminController");
 const managementController = require("../controllers/managementController");
-console.log("Management controller exports:", Object.keys(managementController));
 
 const { authenticate } = require("../middleware/auth");
 
