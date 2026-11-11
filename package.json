@@ -1,0 +1,21 @@
+{
+  "name": "credvault-backend",
+  "version": "1.0.0",
+  "description": "CredVault - Certificate Issuing & Verification Platform (Backend)",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js"
+  },
+  "keywords": ["certificate", "verification", "express", "sqlite", "jwt"],
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-validator": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "sql.js": "^1.10.3"
+  }
+}
