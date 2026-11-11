@@ -1,159 +1,196 @@
 # CredVault — Certificate Issuing & Verification Platform (Backend)
 
-A backend-only application for submitting certificate applications, approving/rejecting them as an admin, issuing verifiable certificates, and revoking certificates when needed.
+A backend-only application for submitting certificate applications, tracking their status, approving or rejecting applications through an authenticated admin account, issuing digital certificates, and verifying or revoking certificates.
 
-Built with **Node.js**, **Express.js**, and **SQLite** (via the pure-JavaScript `sql.js` library so it runs anywhere Node runs — no native compilation required).
+Built using **Node.js, Express.js, and SQLite** with the pure-JavaScript `sql.js` library.
 
 ---
 
-## Tech Stack
+## 1. Tech Stack
 
-| Concern | Library |
+| Concern | Technology |
 |---|---|
-| HTTP server | `express` |
-| Database | `sql.js` (pure-JS SQLite, persisted to a file on disk) |
-| Password hashing | `bcryptjs` |
-| Admin authentication | `jsonwebtoken` (JWT) |
-| Environment variables | `dotenv` |
-| Input validation | `express-validator` |
+| Runtime | Node.js |
+| HTTP Server | Express.js |
+| Database | SQLite using sql.js |
+| Password Hashing | bcryptjs |
+| Authentication | JSON Web Tokens (JWT) |
+| Environment Variables | dotenv |
+| Input Validation | express-validator |
 
 ---
 
-## Project Structure
+## 2. Project Structure
 
-```
+```text
 credvault-backend/
-├── .env.example            # Template for environment variables
+├── .env.example
 ├── .gitignore
 ├── package.json
 ├── README.md
+├── seed.js
 └── src/
-    ├── server.js            # Express app entry point + startup
+    ├── server.js
     ├── config/
-    │   └── database.js      # SQLite (sql.js) init, schema, query helpers
+    │   └── database.js
     ├── routes/
-    │   ├── publicRoutes.js  # /api/applications, /api/certificates
-    │   └── adminRoutes.js   # /api/admin/* (JWT-protected)
+    │   ├── publicRoutes.js
+    │   └── adminRoutes.js
     ├── controllers/
     │   ├── applicationController.js
     │   ├── certificateController.js
     │   ├── adminController.js
     │   └── managementController.js
     ├── middleware/
-    │   ├── auth.js          # JWT verify middleware + token signing
-    │   ├── errors.js        # Validation handler, 404, error handler
-    │   └── validators.js    # express-validator rule sets
+    │   ├── auth.js
+    │   ├── errors.js
+    │   └── validators.js
     ├── models/
     │   ├── Application.js
     │   ├── Certificate.js
     │   └── Admin.js
     └── utils/
-        ├── helpers.js       # ID generators, response sanitizer
-        └── seed.js          # Dev-only admin seeding
+        └── helpers.js
 ```
 
-The SQLite database file is created at `./data/credvault.db` (configurable via `DB_PATH`).
+The SQLite database is created at:
+
+```text
+./data/credvault.db
+```
+
+The database location can be configured using `DB_PATH`.
 
 ---
 
-## Setup
+## 3. Installation and Setup
 
-### 1. Install dependencies
+### Prerequisites
+
+- Node.js
+- npm
+- Git (optional)
+
+### Step 1: Clone the repository
+
+```bash
+git clone https://github.com/arthikarthick07/ELEVATE-SDE-Task-3.git
+```
+
+```bash
+cd ELEVATE-SDE-Task-3
+```
+
+### Step 2: Install dependencies
 
 ```bash
 npm install
 ```
 
-### 2. Configure environment
+### Step 3: Configure environment variables
 
-Copy the template and edit values as needed:
+Create a `.env` file using `.env.example` as a reference.
 
-```bash
-cp .env.example .env
+```env
+PORT=3001
+NODE_ENV=development
+JWT_SECRET=replace_with_a_strong_random_secret
+JWT_EXPIRES_IN=8h
+
+SEED_ADMIN=1
+SEED_ADMIN_USERNAME=admin
+SEED_ADMIN_PASSWORD=change_this_password
+
+DB_PATH=./data/credvault.db
 ```
 
-| Variable | Description | Default |
-|---|---|---|
-| `PORT` | Server port | `3000` |
-| `NODE_ENV` | Environment | `development` |
-| `JWT_SECRET` | Secret used to sign JWTs | — (set a strong random value) |
-| `JWT_EXPIRES_IN` | Token lifetime | `8h` |
-| `SEED_ADMIN` | `1` = seed default admin on startup | `1` |
-| `SEED_ADMIN_USERNAME` | Seeded admin username | `admin` |
-| `SEED_ADMIN_PASSWORD` | Seeded admin password | `Admin@123` |
-| `DB_PATH` | SQLite file path | `./data/credvault.db` |
+**Important:** Never commit the actual `.env` file or expose your JWT secret or admin password.
 
-> **Important:** Never commit your real `.env`. Change the default admin password immediately in any non-local environment.
-
-### 3. Start the server
+### Step 4: Start the server
 
 ```bash
 npm start
 ```
 
-You should see:
+Expected output:
 
-```
-[seed] Seeded default admin 'admin'. Change the password immediately in production.
-CredVault API running on http://localhost:3000
+```text
+CredVault API running on http://localhost:3001
+Health check: http://localhost:3001/api/health
 ```
 
-If the admin already exists, seeding is skipped (it is idempotent and safe to run on every startup).
+If the admin account already exists, the seed process skips creating a duplicate account.
 
 ---
 
-## Database Tables
+## 4. Database Design
 
-### `admins`
-| Column | Type | Notes |
+The application uses three SQLite tables.
+
+### Admins
+
+| Column | Type | Description |
 |---|---|---|
-| `id` | INTEGER PK | Auto-increment |
-| `username` | TEXT | UNIQUE, NOT NULL |
-| `password_hash` | TEXT | bcrypt hash — never returned by any API |
-| `created_at` | TEXT | Default `datetime('now')` |
+| id | INTEGER | Primary key |
+| username | TEXT | Unique admin username |
+| password_hash | TEXT | Bcrypt-hashed password |
+| created_at | TEXT | Account creation timestamp |
 
-### `applications`
-| Column | Type | Notes |
+### Applications
+
+| Column | Type | Description |
 |---|---|---|
-| `id` | INTEGER PK | Auto-increment |
-| `application_id` | TEXT | UNIQUE, format `APP-YYYYMMDD-XXXX` |
-| `name` | TEXT | NOT NULL |
-| `phone` | TEXT | NOT NULL |
-| `gender` | TEXT | CHECK in (`Male`,`Female`,`Other`) |
-| `city` | TEXT | NOT NULL |
-| `state` | TEXT | NOT NULL |
-| `status` | TEXT | CHECK in (`Pending`,`Approved`,`Rejected`), default `Pending` |
-| `submitted_at` | TEXT | Default `datetime('now')` |
-| `rejection_reason` | TEXT | Nullable, set on rejection |
+| id | INTEGER | Primary key |
+| application_id | TEXT | Unique application ID |
+| name | TEXT | Applicant name |
+| phone | TEXT | Contact number |
+| gender | TEXT | Gender |
+| city | TEXT | City |
+| state | TEXT | State |
+| status | TEXT | Pending, Approved or Rejected |
+| submitted_at | TEXT | Submission timestamp |
+| rejection_reason | TEXT | Rejection reason, if applicable |
 
-Indexes on `application_id` and `status`.
+### Certificates
 
-### `certificates`
-| Column | Type | Notes |
+| Column | Type | Description |
 |---|---|---|
-| `id` | INTEGER PK | Auto-increment |
-| `certificate_id` | TEXT | UNIQUE, format `CRT-YYYYMMDD-XXXXXX` |
-| `application_id` | TEXT | FK → `applications.application_id` |
-| `holder_name` | TEXT | NOT NULL |
-| `phone` | TEXT | NOT NULL |
-| `city` | TEXT | NOT NULL |
-| `state` | TEXT | NOT NULL |
-| `issued_at` | TEXT | Default `datetime('now')` |
-| `status` | TEXT | CHECK in (`Valid`,`Revoked`), default `Valid` |
-| `revoked_at` | TEXT | Nullable, set on revocation |
-| `revocation_reason` | TEXT | Nullable, set on revocation |
-
-Indexes on `certificate_id`, `application_id`, and `status`.
+| id | INTEGER | Primary key |
+| certificate_id | TEXT | Unique certificate ID |
+| application_id | TEXT | Related application ID |
+| holder_name | TEXT | Certificate holder |
+| phone | TEXT | Contact number |
+| city | TEXT | City |
+| state | TEXT | State |
+| issued_at | TEXT | Certificate issue timestamp |
+| status | TEXT | Valid or Revoked |
+| revoked_at | TEXT | Revocation timestamp |
+| revocation_reason | TEXT | Reason for revocation |
 
 ---
 
-## API Reference
+## 5. API Documentation
 
-Base URL: `http://localhost:3000/api`
+**Base URL:**
 
-### Health
-#### `GET /api/health`
-**Response 200**
+```text
+http://localhost:3001/api
+```
+
+### A. Health Check
+
+**GET** `/api/health`
+
+Checks whether the backend server is running.
+
+Example:
+
+```bash
+curl http://localhost:3001/api/health
+```
+
+Response: `200 OK`
+
 ```json
 {
   "status": "ok",
@@ -163,311 +200,363 @@ Base URL: `http://localhost:3000/api`
 }
 ```
 
----
+### B. Public APIs
 
-### Public APIs
+#### 1. Submit Application
 
-#### 1. `POST /api/applications`
-Submit a new certificate application.
+**POST** `/api/applications`
 
-**Request body**
+Request body:
+
 ```json
 {
   "name": "Aarav Sharma",
-  "phone": "+919876543210",
+  "phone": "9876543210",
   "gender": "Male",
   "city": "Mumbai",
   "state": "Maharashtra"
 }
 ```
 
-**Response 201**
+Response: `201 Created`
+
 ```json
 {
   "message": "Application submitted successfully.",
   "application": {
-    "id": 1,
     "application_id": "APP-20261111-3195",
     "name": "Aarav Sharma",
-    "phone": "+919876543210",
-    "gender": "Male",
-    "city": "Mumbai",
-    "state": "Maharashtra",
-    "status": "Pending",
-    "submitted_at": "2026-11-11 07:45:29",
-    "rejection_reason": null
+    "status": "Pending"
   }
 }
 ```
 
-**Response 400** (validation error)
-```json
-{
-  "error": "Validation Error",
-  "message": "Submitted data is invalid.",
-  "errors": [
-    { "field": "name", "message": "Name must be between 2 and 100 characters." }
-  ]
-}
+The API generates a unique application ID automatically.
+
+#### 2. Track Application
+
+**GET** `/api/applications/track/:applicationId`
+
+Example:
+
+```bash
+curl http://localhost:3001/api/applications/track/APP-20261111-3195
 ```
 
-#### 2. `GET /api/applications/track/:applicationId`
-Track an application by its ID.
+Returns the application details and current status.
 
-**Response 200**
-```json
-{
-  "application": {
-    "id": 2,
-    "application_id": "APP-20261111-6759",
-    "name": "Priya Patel",
-    "phone": "9876543210",
-    "gender": "Female",
-    "city": "Pune",
-    "state": "Maharashtra",
-    "status": "Pending",
-    "submitted_at": "2026-11-11 07:45:33",
-    "rejection_reason": null
-  }
-}
+Possible statuses:
+
+- Pending
+- Approved
+- Rejected
+
+#### 3. Verify Certificate
+
+**GET** `/api/certificates/verify/:certificateId`
+
+Example:
+
+```bash
+curl http://localhost:3001/api/certificates/verify/CRT-20261111-922008
 ```
 
-**Response 404**
-```json
-{ "error": "Not Found", "message": "No application found with ID 'APP-NOPE-9999'." }
-```
+Response for a valid certificate:
 
-#### 3. `GET /api/certificates/verify/:certificateId`
-Verify a certificate by its ID.
-
-**Response 200 (valid)**
 ```json
 {
   "valid": true,
   "certificate": {
-    "id": 1,
     "certificate_id": "CRT-20261111-922008",
-    "application_id": "APP-20261111-3195",
-    "holder_name": "Aarav Sharma",
-    "phone": "+919876543210",
-    "city": "Mumbai",
-    "state": "Maharashtra",
-    "issued_at": "2026-11-11 07:45:37",
-    "status": "Valid",
-    "revoked_at": null,
-    "revocation_reason": null
+    "status": "Valid"
   }
 }
 ```
 
-**Response 200 (revoked)** — `valid: false` with full revocation details.
+For a revoked certificate:
 
-**Response 404**
-```json
-{ "error": "Not Found", "message": "No certificate found with ID 'CRT-NOPE-0000'." }
-```
-
----
-
-### Admin APIs
-
-All admin endpoints (except `/api/admin/login`) require the header:
-
-```
-Authorization: Bearer <token>
-```
-
-#### 4. `POST /api/admin/login`
-**Request body**
-```json
-{ "username": "admin", "password": "Admin@123" }
-```
-
-**Response 200**
 ```json
 {
-  "message": "Login successful.",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "admin": { "id": 1, "username": "admin", "created_at": "2026-11-11 07:45:12" }
-}
-```
-
-**Response 401** (bad credentials)
-```json
-{ "error": "Unauthorized", "message": "Invalid username or password." }
-```
-
-#### 5. `GET /api/admin/applications`
-Returns all applications, newest first.
-
-**Response 200**
-```json
-{
-  "count": 2,
-  "applications": [ /* ... */ ]
-}
-```
-
-#### 6. `PATCH /api/admin/applications/:applicationId/approve`
-Approves a `Pending` application and issues a unique certificate. Re-approving an already-approved application returns `409` (duplicate certificate prevention).
-
-**Response 200**
-```json
-{
-  "message": "Application approved and certificate issued.",
-  "application": { /* ... status: "Approved" */ },
-  "certificate": { /* ... status: "Valid" */ }
-}
-```
-
-**Response 409** (already approved)
-```json
-{
-  "error": "Conflict",
-  "message": "Application already approved. A certificate has been issued.",
-  "certificate": { /* ... */ }
-}
-```
-
-#### 7. `PATCH /api/admin/applications/:applicationId/reject`
-Rejects a `Pending` application. Requires a reason.
-
-**Request body**
-```json
-{ "reason": "Incomplete supporting documents." }
-```
-
-**Response 200**
-```json
-{
-  "message": "Application rejected.",
-  "application": { /* ... status: "Rejected", rejection_reason: "..." */ }
-}
-```
-
-**Response 409** (already rejected), **400** (missing/short reason).
-
-#### 8. `GET /api/admin/certificates`
-Returns all certificates, newest first.
-
-#### 9. `PATCH /api/admin/certificates/:certificateId/revoke`
-Revokes a `Valid` certificate. Requires a reason. Re-revoking returns `409`.
-
-**Request body**
-```json
-{ "reason": "Fraudulent documentation discovered during audit." }
-```
-
-**Response 200**
-```json
-{
-  "message": "Certificate revoked successfully.",
+  "valid": false,
   "certificate": {
-    /* ... status: "Revoked", revoked_at: "...", revocation_reason: "..." */
+    "certificate_id": "CRT-20261111-922008",
+    "status": "Revoked"
   }
 }
 ```
 
----
+A revoked certificate cannot be considered valid.
 
-## State Machine Guards
+### C. Admin APIs
 
-| Current status | Approve? | Reject? |
-|---|---|---|
-| Pending | Yes | Yes |
-| Approved | 409 (already approved) | 409 (cannot reject approved) |
-| Rejected | 409 (cannot approve rejected) | 409 (already rejected) |
+All admin endpoints except login require JWT authentication.
 
-| Certificate status | Revoke? |
-|---|---|
-| Valid | Yes |
-| Revoked | 409 (already revoked) |
+Add this HTTP header:
 
----
+```text
+Authorization: Bearer YOUR_TOKEN
+```
 
-## Testing with Postman
+#### 4. Admin Login
 
-1. Start the server: `npm start`
-2. Import or manually create the requests below.
+**POST** `/api/admin/login`
 
-**Quick test flow:**
+Request body:
 
-1. **Health** — `GET http://localhost:3000/api/health`
-2. **Submit application** — `POST http://localhost:3000/api/applications` with the JSON body above. Copy the returned `application_id`.
-3. **Track** — `GET http://localhost:3000/api/applications/track/{application_id}`
-4. **Admin login** — `POST http://localhost:3000/api/admin/login`. Copy the `token` from the response.
-5. In Postman, add an Authorization header to all admin requests:
-   - Type: `Bearer Token`
-   - Token: `{paste token}`
-6. **List applications** — `GET http://localhost:3000/api/admin/applications`
-7. **Approve** — `PATCH http://localhost:3000/api/admin/applications/{application_id}/approve`. Copy the returned `certificate_id`.
-8. **Verify certificate** — `GET http://localhost:3000/api/certificates/verify/{certificate_id}`
-9. **List certificates** — `GET http://localhost:3000/api/admin/certificates`
-10. **Revoke** — `PATCH http://localhost:3000/api/admin/certificates/{certificate_id}/revoke` with body `{"reason":"..."}`
-11. **Verify revoked** — repeat step 8; `valid` will be `false`.
+```json
+{
+  "username": "admin",
+  "password": "YOUR_ADMIN_PASSWORD"
+}
+```
 
----
+Response: `200 OK`
 
-## Sample Test Data
+Returns a JWT token and admin information.
 
-Submit a few applications to populate the database:
+#### 5. List All Applications
+
+**GET** `/api/admin/applications`
+
+Returns all submitted applications, newest first.
+
+Requires admin authentication.
+
+#### 6. Approve Application
+
+**PATCH** `/api/admin/applications/:applicationId/approve`
+
+Approves a pending application and automatically generates a unique certificate.
+
+Response includes:
+
+- Updated application details
+- Generated certificate details
+- Certificate ID
+
+An already-approved application cannot be approved again.
+
+#### 7. Reject Application
+
+**PATCH** `/api/admin/applications/:applicationId/reject`
+
+Request body:
+
+```json
+{
+  "reason": "Incomplete supporting documents."
+}
+```
+
+Rejects a pending application and saves the rejection reason.
+
+An already-approved or rejected application cannot be rejected again.
+
+#### 8. List All Certificates
+
+**GET** `/api/admin/certificates`
+
+Returns all issued certificates, newest first.
+
+Requires admin authentication.
+
+#### 9. Revoke Certificate — PATCH
+
+**PATCH** `/api/admin/certificates/:certificateId/revoke`
+
+Recommended REST method for revoking a certificate.
+
+Request body:
+
+```json
+{
+  "reason": "Fraudulent documentation discovered during audit."
+}
+```
+
+Changes the certificate status from `Valid` to `Revoked`.
+
+The revocation timestamp and reason are saved.
+
+#### 10. Revoke Certificate — GET
+
+**GET** `/api/admin/certificates/:certificateId/revoke`
+
+Included for compatibility with the official assignment specification.
+
+Requires admin JWT authentication.
+
+Example:
 
 ```bash
-curl -s -X POST http://localhost:3000/api/applications \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Aarav Sharma","phone":"+919876543210","gender":"Male","city":"Mumbai","state":"Maharashtra"}'
-
-curl -s -X POST http://localhost:3000/api/applications \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Priya Patel","phone":"9876543210","gender":"Female","city":"Pune","state":"Maharashtra"}'
-
-curl -s -X POST http://localhost:3000/api/applications \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Rahul Verma","phone":"9999999999","gender":"Male","city":"Delhi","state":"Delhi"}'
+curl http://localhost:3001/api/admin/certificates/CRT-20261111-922008/revoke \
+  -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
-The seeded admin (when `SEED_ADMIN=1`) is:
+The GET compatibility endpoint uses a default revocation reason when no reason is supplied.
 
-| Username | Password |
-|---|---|
-| `admin` | `Admin@123` |
-
-> This is a **development-only** convenience. Always change the password and disable seeding in production by setting `SEED_ADMIN=0`.
+**Note:** GET is normally intended for read-only operations. PATCH is the recommended revocation method; GET is provided only for assignment compatibility.
 
 ---
 
-## Security Notes
+## 6. Application and Certificate Status Flow
 
-- All admin endpoints (except login) are protected by JWT middleware.
-- Admin passwords are hashed with bcrypt before storage.
-- Password hashes are never included in any API response.
-- All inputs are validated with `express-validator`.
-- All SQL queries use parameterized statements (no string concatenation) — preventing SQL injection.
-- JWT secrets and credentials are read from environment variables, never hardcoded.
-- Appropriate HTTP status codes are used throughout (200, 201, 400, 401, 404, 409, 500).
+### Application Status
 
----
+| Current Status | Action | Result |
+|---|---|---|
+| Pending | Approve | Approved |
+| Pending | Reject | Rejected |
+| Approved | Approve again | 409 Conflict |
+| Approved | Reject | 409 Conflict |
+| Rejected | Approve | 409 Conflict |
+| Rejected | Reject again | 409 Conflict |
 
-## Error Response Format
+### Certificate Status
 
-All errors follow a consistent shape:
+| Current Status | Action | Result |
+|---|---|---|
+| Valid | Revoke | Revoked |
+| Revoked | Revoke again | 409 Conflict |
+
+### Important Revocation Behaviour
+
+Revoking a certificate changes only the certificate record.
+
+The original application record remains unchanged.
+
+For example:
+
+```text
+Application Status: Approved
+Certificate Status: Revoked
+```
+
+Public certificate verification returns:
 
 ```json
 {
-  "error": "Error name",
-  "message": "Human-readable message",
-  "errors": [   // present only for validation errors
-    { "field": "name", "message": "..." }
-  ]
+  "valid": false
 }
 ```
 
-| Status | Meaning |
+---
+
+## 7. Authentication and Security
+
+The backend includes:
+
+- JWT-based admin authentication.
+- Password hashing using bcryptjs.
+- Protected admin routes.
+- Input validation using express-validator.
+- Parameterized SQL queries.
+- Environment-based secret management.
+- Password hashes excluded from API responses.
+- Appropriate HTTP status codes.
+- Duplicate approval and revocation prevention.
+
+Admin credentials should be changed before using the application in a production environment.
+
+---
+
+## 8. HTTP Status Codes
+
+| Code | Meaning |
 |---|---|
-| 200 | Success |
+| 200 | Successful request |
 | 201 | Resource created |
-| 400 | Validation error / bad request |
-| 401 | Authentication failed or missing |
-| 404 | Resource not found |
-| 409 | Conflict (duplicate / invalid state transition) |
+| 400 | Invalid input |
+| 401 | Unauthorized |
+| 404 | Resource or route not found |
+| 409 | Conflict or invalid status transition |
 | 500 | Internal server error |
+
+---
+
+## 9. Testing
+
+The APIs can be tested using:
+
+- cURL
+- Postman
+
+### Recommended Testing Workflow
+
+1. Check server health.
+2. Submit a certificate application.
+3. Track the application.
+4. Log in as admin.
+5. Retrieve the JWT token.
+6. List applications.
+7. Approve a pending application.
+8. Verify the generated certificate.
+9. List all certificates.
+10. Revoke a certificate using PATCH.
+11. Test the GET revocation endpoint.
+12. Verify that the revoked certificate returns `valid: false`.
+13. Confirm that the original application remains Approved after certificate revocation.
+14. Test rejection using another pending application.
+
+All protected admin requests must include a valid Bearer token.
+
+---
+
+## 10. Sample API Test Commands
+
+### Submit Application
+
+```bash
+curl -X POST http://localhost:3001/api/applications \
+-H "Content-Type: application/json" \
+-d '{"name":"Test User","phone":"9000000001","gender":"Female","city":"Coimbatore","state":"Tamil Nadu"}'
+```
+
+### Admin Login
+
+```bash
+curl -X POST http://localhost:3001/api/admin/login \
+-H "Content-Type: application/json" \
+-d '{"username":"admin","password":"YOUR_ADMIN_PASSWORD"}'
+```
+
+### List Applications
+
+```bash
+curl http://localhost:3001/api/admin/applications \
+-H "Authorization: Bearer YOUR_TOKEN"
+```
+
+### List Certificates
+
+```bash
+curl http://localhost:3001/api/admin/certificates \
+-H "Authorization: Bearer YOUR_TOKEN"
+```
+
+---
+
+## 11. Future Enhancements
+
+- Admin management and password update.
+- Improved certificate document generation.
+- QR-code-based certificate verification.
+- Additional authentication controls.
+- Enhanced audit logs.
+- Frontend integration.
+
+---
+
+## 12. Project Information
+
+**Project:** CredVault — Certificate Issuing & Verification Platform  
+**Internship:** ELEVATE Skills — Software Development Engineer Intern  
+**Task:** Task 3 — Backend Development  
+**Backend:** Node.js and Express.js  
+**Database:** SQLite (sql.js)
+
+**Repository:** https://github.com/arthikarthick07/ELEVATE-SDE-Task-3
+
+---
+
+*Developed as part of the ELEVATE Software Development Engineer Internship.*
